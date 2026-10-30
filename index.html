@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tìm Xe Máy BLE</title>
+  <style>
+    body { 
+      font-family: system-ui, sans-serif; 
+      background: #000000; 
+      color: #ffffff; 
+      text-align: center; 
+      padding: 20px; 
+      margin: 0; 
+    }
+    
+    h2 {
+      letter-spacing: 1px;
+      margin-bottom: 30px;
+    }
+
+    .radar-box { 
+      margin: 25px auto; 
+      width: 240px; 
+      height: 240px; 
+      border-radius: 50%; 
+      border: 4px solid #ffffff; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      justify-content: center; 
+      transition: all 0.3s ease; 
+      background: #000000; 
+    }
+    
+    .distance { 
+      font-size: 56px; 
+      font-weight: bold; 
+      color: #BEDEFF; /* Màu xanh điểm nhấn */
+    }
+    
+    .status { 
+      font-size: 18px; 
+      font-weight: 600; 
+      margin: 20px 0; 
+      min-height: 28px; 
+      color: #ffffff;
+    }
+    
+    .btn { 
+      display: block; 
+      width: 90%; 
+      max-width: 320px; 
+      margin: 15px auto; 
+      padding: 18px; 
+      font-size: 16px; 
+      font-weight: bold; 
+      border: none; 
+      border-radius: 50px; /* Bo tròn hoàn toàn */
+      cursor: pointer; 
+      transition: all 0.2s; 
+    }
+    
+    .btn-scan { 
+      background: #BEDEFF; 
+      color: #000000; 
+    }
+    
+    .btn-beep { 
+      background: #ffffff; 
+      color: #000000; 
+    }
+    
+    .btn:active { 
+      transform: scale(0.97); 
+      opacity: 0.8; 
+    }
+  </style>
+</head>
+<body>
+
+  <h2>RADAR TÌM XE MÁY</h2>
+  
+  <div class="radar-box" id="radarBox">
+    <div class="distance" id="distText">-- m</div>
+  </div>
+
+  <div class="status" id="statusText">Chưa dò tín hiệu</div>
+
+  <button class="btn btn-scan" onclick="startRadar()">BẮT ĐẦU DÒ KHOẢNG CÁCH</button>
+  <button class="btn btn-beep" onclick="beepHorn()">BẤM CÒI / NHÁY ĐÈN</button>
+
+  <script>
+    const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+    const CHAR_UUID    = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+    
+    let rssiBuffer = [];
+    const TX_POWER = -59; 
+    const ENV_N = 3.0;    
+
+    function calculateDistance(rssi) { 
+      return Math.pow(10, (TX_POWER - rssi) / (10 * ENV_N)); 
+    }
+
+    function updateUI(avgRssi) {
+      const dist = calculateDistance(avgRssi).toFixed(1);
+      document.getElementById('distText').innerText = dist + " m";
+
+      const radar = document.getElementById('radarBox');
+      const status = document.getElementById('statusText');
+
+      // Đổi màu viền và chữ theo tone Trắng / Xanh / Xám dựa vào khoảng cách
+      if (avgRssi > -65) {
+        radar.style.borderColor = "#BEDEFF"; 
+        radar.style.boxShadow = "0 0 25px rgba(190, 222, 255, 0.4)";
+        status.innerText = "Xe đang ở ngay cạnh bạn!"; 
+        status.style.color = "#BEDEFF";
+      } else if (avgRssi > -80) {
+        radar.style.borderColor = "#ffffff"; 
+        radar.style.boxShadow = "none";
+        status.innerText = "Đang tới gần xe"; 
+        status.style.color = "#ffffff";
+      } else {
+        radar.style.borderColor = "#555555"; 
+        radar.style.boxShadow = "none";
+        status.innerText = "Đã bắt được sóng xe ở xa"; 
+        status.style.color = "#aaaaaa";
+      }
+    }
+
+    async function startRadar() {
+      try {
+        document.getElementById('statusText').innerText = "Đang tìm sóng XE_MAY_CUA_TOI...";
+        const scan = await navigator.bluetooth.requestLEScan({ 
+          filters: [{ name: "XE_MAY_CUA_TOI" }], 
+          keepRepeatedDevices: true 
+        });
+
+        navigator.bluetooth.addEventListener('advertisementreceived', event => {
+          if (event.device.name === "XE_MAY_CUA_TOI") {
+            rssiBuffer.push(event.rssi);
+            if (rssiBuffer.length > 5) rssiBuffer.shift();
+            const avgRssi = rssiBuffer.reduce((a, b) => a + b, 0) / rssiBuffer.length;
+            updateUI(avgRssi);
+          }
+        });
+      } catch (err) { 
+        alert("Hãy bật Bluetooth, Vị trí (GPS) và cờ chrome://flags nhé! Chi tiết lỗi: " + err); 
+      }
+    }
+
+    async function beepHorn() {
+      try {
+        const device = await navigator.bluetooth.requestDevice({ 
+          filters: [{ name: "XE_MAY_CUA_TOI" }], 
+          optionalServices: [SERVICE_UUID] 
+        });
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService(SERVICE_UUID);
+        const char = await service.getCharacteristic(CHAR_UUID);
+        
+        const encoder = new TextEncoder();
+        await char.writeValue(encoder.encode("1")); 
+      } catch (err) { 
+        alert("Chưa kết nối được với xe để bấm còi: " + err); 
+      }
+    }
+  </script>
+</body>
+</html>
