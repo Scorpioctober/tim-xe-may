@@ -4,6 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tìm Xe Máy BLE</title>
+  
+  <!-- Khai báo Icon Ứng dụng từ file upload -->
+  <link rel="icon" type="image/png" href="icon.png">
+  <link rel="apple-touch-icon" href="icon.png">
+  
   <style>
     body { 
       font-family: system-ui, sans-serif; 
@@ -36,7 +41,7 @@
     .distance { 
       font-size: 56px; 
       font-weight: bold; 
-      color: #BEDEFF; /* Màu xanh điểm nhấn */
+      color: #BEDEFF; 
     }
     
     .status { 
@@ -56,7 +61,7 @@
       font-size: 16px; 
       font-weight: bold; 
       border: none; 
-      border-radius: 50px; /* Bo tròn hoàn toàn */
+      border-radius: 50px; 
       cursor: pointer; 
       transition: all 0.2s; 
     }
@@ -94,9 +99,9 @@
     const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
     const CHAR_UUID    = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
     
-    let rssiBuffer = [];
     const TX_POWER = -59; 
     const ENV_N = 3.0;    
+    let smoothedRssi = null; // Biến lưu trữ sóng đã lọc nhiễu
 
     function calculateDistance(rssi) { 
       return Math.pow(10, (TX_POWER - rssi) / (10 * ENV_N)); 
@@ -109,62 +114,6 @@
       const radar = document.getElementById('radarBox');
       const status = document.getElementById('statusText');
 
-      // Đổi màu viền và chữ theo tone Trắng / Xanh / Xám dựa vào khoảng cách
       if (avgRssi > -65) {
         radar.style.borderColor = "#BEDEFF"; 
-        radar.style.boxShadow = "0 0 25px rgba(190, 222, 255, 0.4)";
-        status.innerText = "Xe đang ở ngay cạnh bạn!"; 
-        status.style.color = "#BEDEFF";
-      } else if (avgRssi > -80) {
-        radar.style.borderColor = "#ffffff"; 
-        radar.style.boxShadow = "none";
-        status.innerText = "Đang tới gần xe"; 
-        status.style.color = "#ffffff";
-      } else {
-        radar.style.borderColor = "#555555"; 
-        radar.style.boxShadow = "none";
-        status.innerText = "Đã bắt được sóng xe ở xa"; 
-        status.style.color = "#aaaaaa";
-      }
-    }
-
-    async function startRadar() {
-      try {
-        document.getElementById('statusText').innerText = "Đang tìm sóng XE_MAY_CUA_TOI...";
-        const scan = await navigator.bluetooth.requestLEScan({ 
-          filters: [{ name: "XE_MAY_CUA_TOI" }], 
-          keepRepeatedDevices: true 
-        });
-
-        navigator.bluetooth.addEventListener('advertisementreceived', event => {
-          if (event.device.name === "XE_MAY_CUA_TOI") {
-            rssiBuffer.push(event.rssi);
-            if (rssiBuffer.length > 5) rssiBuffer.shift();
-            const avgRssi = rssiBuffer.reduce((a, b) => a + b, 0) / rssiBuffer.length;
-            updateUI(avgRssi);
-          }
-        });
-      } catch (err) { 
-        alert("Hãy bật Bluetooth, Vị trí (GPS) và cờ chrome://flags nhé! Chi tiết lỗi: " + err); 
-      }
-    }
-
-    async function beepHorn() {
-      try {
-        const device = await navigator.bluetooth.requestDevice({ 
-          filters: [{ name: "XE_MAY_CUA_TOI" }], 
-          optionalServices: [SERVICE_UUID] 
-        });
-        const server = await device.gatt.connect();
-        const service = await server.getPrimaryService(SERVICE_UUID);
-        const char = await service.getCharacteristic(CHAR_UUID);
-        
-        const encoder = new TextEncoder();
-        await char.writeValue(encoder.encode("1")); 
-      } catch (err) { 
-        alert("Chưa kết nối được với xe để bấm còi: " + err); 
-      }
-    }
-  </script>
-</body>
-</html>
+        radar.
